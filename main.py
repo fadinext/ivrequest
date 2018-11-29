@@ -7,6 +7,9 @@ from datetime import datetime,date
 ivrequest
 
 Escreve 1 na flag de leitura de todos os escravos conectados ao barramento
+
+Solicita,individualmente,que cada um dos dispositivos envie seu conteúdo e 
+o armazena em um arquivo de texto.
 """
 
 if __name__ == "__main__":
@@ -17,41 +20,51 @@ if __name__ == "__main__":
     except:
         pass
     
-   #sleep(2)
-    dirName = str( date.today())
+    try:
+        with open("slaves.txt","r") as f:
+            slaves = (f.read()).split(',')
+        sleep(2)
+    except:
+        print("Não foi encontrada uma lista de slaves. Criando nova.\n")
+        slaves = list(range(1,247))
+        client.mb.set_response_timeout(0.08)
+        for j in range(1,247):
+            client.setSlave(j)
+            try:
+                print(f"Tentando comunicação com o slave {hex(j)}.")
+                client.mb.read_input_registers( MbRegisters.VOLTAGE_INIT_REG.value , 1)
+                print(f"Slave {hex(j)} respondeu.\n")
+            except:
+                print(f"Removendo {hex(j)}.\n")
+                slaves.remove(j)
+        with open("slaves.txt","w") as f:
+                f.write( (str(slaves).replace('[','').replace(']','') ))
+    
+    dirName = str(date.today())
+    fileNamePrefix = (datetime.now()).strftime("%Y-%m-%d_%H-%M-%S")
     try:
         os.mkdir(dirName)
     except:
         pass
 
-    slaves = list(range(1,11))
-    
-    client.setSlave(10)
-    client.mb.read_input_registers( MbRegisters.VOLTAGE_INIT_REG.value , 1)
-
-    for j in range(1,11):
-        client.setSlave(j)
-        try:
-            client.mb.read_input_registers( MbRegisters.VOLTAGE_INIT_REG.value , 1)
-        except:
-            print(f"removido {j}")
-            slaves.remove(j)
-
-    print(slaves)
+    client.mb.set_response_timeout(0.5)
     for i in slaves:
-        client.setSlave(i)
+        client.setSlave(int(i))
         try:
             x = list(client.mb.read_input_registers(MbRegisters.VOLTAGE_INIT_REG.value,
                 MbRegisters.DATA_REGS.value))
             y = list(client.mb.read_input_registers(MbRegisters.CURRENT_INIT_REG.value, 
                 MbRegisters.DATA_REGS.value))
+            with open(f"./{dirName}/{fileNamePrefix}_{hex(int(i))}.txt","w") as f:
+                for i in range(0,len(x)):
+                    f.write(f"{x[i]},{y[i]}\n")
+                #f.write( (str(x).replace('[','').replace(']','') ) + "\n")
+                #f.write( (str(y).replace('[','').replace(']','') )       )
         except:
-            with open(f"./{dirName}/{hex(i)}.txt","w") as f:
+            with open(f"./{dirName}/{fileNamePrefix}_{hex(int(i))}.txt","w") as f:
                 f.write('IO ERROR.')
 
-        with open(f"./{dirName}/{datetime.now()}{hex(i)}.txt","w") as f:
-                f.write('IO ERROR.')
-
+        
                         
 
 
