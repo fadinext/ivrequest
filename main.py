@@ -23,7 +23,7 @@ if __name__ == "__main__":
     try:
         with open("slaves.txt","r") as f:
             slaves = (f.read()).split(',')
-        sleep(2)
+        sleep(1)
     except:
         print("Não foi encontrada uma lista de slaves. Criando nova.\n")
         slaves = list(range(1,247))
@@ -42,14 +42,15 @@ if __name__ == "__main__":
     
     dirName = str(date.today())
     fileNamePrefix = (datetime.now()).strftime("%Y-%m-%d_%H-%M-%S")
+
     try:
         os.mkdir(dirName)
     except:
         pass
 
     client.mb.set_response_timeout(0.5)
-    for i in slaves:
-        client.setSlave(int(i))
+    for j in slaves:
+        client.setSlave(int(j))
         try:
             x = list(client.mb.read_input_registers(MbRegisters.VOLTAGE_INIT_REG.value,
                 MbRegisters.DATA_REGS.value))
@@ -58,8 +59,6 @@ if __name__ == "__main__":
             with open(f"./{dirName}/{fileNamePrefix}_{hex(int(i))}.txt","w") as f:
                 for i in range(0,len(x)):
                     f.write(f"{x[i]},{y[i]}\n")
-                #f.write( (str(x).replace('[','').replace(']','') ) + "\n")
-                #f.write( (str(y).replace('[','').replace(']','') )       )
         except:
             with open(f"./{dirName}/{fileNamePrefix}_{hex(int(i))}.txt","w") as f:
                 f.write('IO ERROR.')
