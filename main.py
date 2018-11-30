@@ -21,7 +21,7 @@ if __name__ == "__main__":
         pass
     
     try:
-        with open("slaves.txt","r") as f:
+        with open("slaves.csv","r") as f:
             slaves = (f.read()).split(',')
         sleep(1)
     except:
@@ -37,7 +37,7 @@ if __name__ == "__main__":
             except:
                 print(f"Removendo {hex(j)}.\n")
                 slaves.remove(j)
-        with open("slaves.txt","w") as f:
+        with open("slaves.csv","w") as f:
                 f.write( (str(slaves).replace('[','').replace(']','') ))
     
     dirName = str(date.today())
@@ -56,11 +56,11 @@ if __name__ == "__main__":
                 MbRegisters.DATA_REGS.value))
             y = list(client.mb.read_input_registers(MbRegisters.CURRENT_INIT_REG.value, 
                 MbRegisters.DATA_REGS.value))
-            with open(f"./{dirName}/{fileNamePrefix}_{hex(int(j))}.txt","w") as f:
+            with open(f"./{dirName}/{fileNamePrefix}_{hex(int(j))}.csv","w") as f:
                 for i in range(0,len(x)):
                     f.write(f"{x[i]},{y[i]}\n")
         except:
-            with open(f"./{dirName}/{fileNamePrefix}_{hex(int(j))}.txt","w") as f:
+            with open(f"./{dirName}/{fileNamePrefix}_{hex(int(j))}.csv","w") as f:
                 f.write('IO ERROR.')
 
         
