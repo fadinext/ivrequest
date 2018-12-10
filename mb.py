@@ -7,6 +7,7 @@
 
 from enum import Enum
 from mb_core import *
+import sys
 
 class ModbusRtuMain():
     def __init__(self, device , baud, parity, data_bit, stop_bit):
@@ -15,6 +16,7 @@ class ModbusRtuMain():
             self.mb.connect()
         except:
             print('Sem conexão. Checou permissões, inicialização do programa na placa e conexões físicas?') 
+            sys.exit(0)
 
     def setSlave(self,slave):
         self.mb.set_slave(slave)
