@@ -6,21 +6,27 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <uv/errno.h>
+#include <errno.h>
 
 #include <modbus.h>
 
-#define MAX_SLAVES 11
+#define MAX_SLAVES 248
 #define SLAVES_LIST "slaves.bin"
 #define N_DATA_REGS 50
 #define VOLTAGE_INIT_REG 999
 #define CURRENT_INIT_REG 1049
 #define READ_VAL_FLAG 2001
 
+#define DEVICE "/dev/ttyUSB0"
+#define BAUD    38400
+#define PARITY  'N'
+#define DATA_BITS 8   
+#define STOP_BITS 1
+
 int update_slaves(modbus_t* client);
 int read_from_slaves(modbus_t* client);
 int help_text();
-
+struct timeval response_timeout;
 int main(int argc, char const *argv[])
 {
     modbus_t* client;
@@ -29,7 +35,7 @@ int main(int argc, char const *argv[])
     data = malloc(sizeof(uint16_t));
     data[0] = (uint16_t)(1);
 
-    client = modbus_new_rtu("/dev/ttyUSB0",38400,'N',8,1);
+    client = modbus_new_rtu(DEVICE,BAUD,PARITY,DATA_BITS,STOP_BITS);
     modbus_connect(client);
     if (modbus_connect(client) == -1) 
     {
@@ -71,8 +77,10 @@ int update_slaves(modbus_t* client)
 
     uint16_t* dest;
     dest = malloc(sizeof(uint16_t));
-    modbus_set_response_timeout(client,0,80000);
-
+    response_timeout.tv_sec = 0;
+    response_timeout.tv_usec = 80000;
+    modbus_set_response_timeout(client,&response_timeout);
+    //modbus_set_response_timeout(client,0, 80000);
     for(i=1;i<MAX_SLAVES;i++)
     {
         modbus_set_slave(client,i);
@@ -141,7 +149,10 @@ int read_from_slaves(modbus_t* client)
     x = malloc(N_DATA_REGS * sizeof(uint16_t));
     y = malloc(N_DATA_REGS * sizeof(uint16_t));
 
-    modbus_set_response_timeout(client,1,0);
+    response_timeout.tv_sec = 1;
+    response_timeout.tv_usec = 0;
+    modbus_set_response_timeout(client,&response_timeout);
+    //modbus_set_response_timeout(client,1,0);
 
     i = 0;
     while(buff[i] != 0)
