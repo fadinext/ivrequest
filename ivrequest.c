@@ -1,12 +1,14 @@
 #include <stdio.h>
 #include <stdlib.h>
+
 #include <string.h>
 #include <time.h>
 #include <malloc.h>
 #include <unistd.h>
+#include <errno.h>
+
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <errno.h>
 
 #include <modbus.h>
 
@@ -27,16 +29,15 @@ int update_slaves(modbus_t* client);
 int read_from_slaves(modbus_t* client);
 int help_text();
 struct timeval response_timeout;
+
 int main(int argc, char const *argv[])
 {
     modbus_t* client;
-    uint16_t* data;
-    char op[5];
-    data = malloc(sizeof(uint16_t));
-    data[0] = (uint16_t)(1);
+    char op[2];
 
     client = modbus_new_rtu(DEVICE,BAUD,PARITY,DATA_BITS,STOP_BITS);
     modbus_connect(client);
+
     if (modbus_connect(client) == -1) 
     {
         fprintf(stderr, "Connection failed: %s\n", modbus_strerror(errno));
@@ -70,17 +71,18 @@ int update_slaves(modbus_t* client)
 {
     FILE* slaves;
     int i;
-    int res;
-    int aux[MAX_SLAVES];
+    uint8_t aux[MAX_SLAVES];
     for(i=0;i<MAX_SLAVES;i++)
         aux[i] = i;
 
     uint16_t* dest;
     dest = malloc(sizeof(uint16_t));
+
     response_timeout.tv_sec = 0;
     response_timeout.tv_usec = 80000;
-    modbus_set_response_timeout(client,&response_timeout);
-    //modbus_set_response_timeout(client,0, 80000);
+    //modbus_set_response_timeout(client,&response_timeout);
+    modbus_set_response_timeout(client,0, 80000);
+
     for(i=1;i<MAX_SLAVES;i++)
     {
         modbus_set_slave(client,i);
@@ -93,15 +95,13 @@ int update_slaves(modbus_t* client)
         }
         else
             printf("Slave 0x%x respondeu.\n\n",i);
-           
     }
 
     slaves = fopen(SLAVES_LIST,"wb");
-    for(i=1;i<MAX_SLAVES;i++)
+    for(i=1; i<MAX_SLAVES; i++)
     {
         if (aux[i] != 0)
-            //fprintf(slaves,"%d,",aux[i]);
-            fwrite(&aux[i],1,sizeof(int8_t),slaves);
+            fwrite(&aux[i], 1, sizeof(uint8_t), slaves);
     } 
     fclose(slaves);
     free(dest);
@@ -118,7 +118,7 @@ int read_from_slaves(modbus_t* client)
     int i,j;
 
     uint8_t slaves_count;
-    uint8_t buff[MAX_SLAVES] = {0,0,0,0};
+    uint8_t slaves_list[MAX_SLAVES] = {0,0,0,0};
 
     uint16_t* x,*y;
 
@@ -126,22 +126,18 @@ int read_from_slaves(modbus_t* client)
     struct tm tm = *localtime(&t);
     struct stat st = {0};
 
-    snprintf(&dirname[0], 5 * sizeof(char),"%d",tm.tm_year + 1900);
-    dirname[4] =  '-';
-
-    snprintf(&dirname[5], 3 * sizeof(char),"%d",tm.tm_mon + 1);
-    dirname[7] =  '-';
-
-    snprintf(&dirname[8], 3 * sizeof(char),"%d",tm.tm_mday);
+    sprintf(&dirname[0], "%d-%d-%d", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday);
     
     if (stat(dirname, &st) == -1) 
         mkdir(dirname, 0700);
     
     slaves = fopen(SLAVES_LIST,"rb");
+
     fseek(slaves, 0 , SEEK_END);
     slaves_count = ftell(slaves);
+
     fseek(slaves, 0 , SEEK_SET);
-    fread(&buff,sizeof(uint8_t),slaves_count,slaves);
+    fread(&slaves_list,sizeof(uint8_t), slaves_count, slaves);
 
     modbus_set_slave(client,0x00);
     modbus_write_register(client,READ_VAL_FLAG,1);
@@ -151,25 +147,32 @@ int read_from_slaves(modbus_t* client)
 
     response_timeout.tv_sec = 1;
     response_timeout.tv_usec = 0;
-    modbus_set_response_timeout(client,&response_timeout);
-    //modbus_set_response_timeout(client,1,0);
+
+    //modbus_set_response_timeout(client,&response_timeout);
+    modbus_set_response_timeout(client,1,0);
 
     i = 0;
-    while(buff[i] != 0)
+    while(slaves_list[i] != 0)
     {
-        modbus_set_slave(client,buff[i]);
+        modbus_set_slave(client,slaves_list[i]);
 
         if(modbus_read_input_registers(client, VOLTAGE_INIT_REG , N_DATA_REGS , x) ==  -1)
+        {
             fprintf(stderr,"%s\n",modbus_strerror(errno)); 
+            break;
+        }
+            
         if(modbus_read_input_registers(client, CURRENT_INIT_REG , N_DATA_REGS , y) ==  -1)
+        {
             fprintf(stderr,"%s\n",modbus_strerror(errno));
-
-    
-        snprintf(&filename[0], sizeof(dirname),"%s",dirname);
-        sprintf(aux,"_%d_%d_%d_0x",tm.tm_hour,tm.tm_min,tm.tm_sec);
-        strcat(&filename,aux);
-        sprintf(aux,"%x.csv",buff[i]);
-        strcat(&filename,aux);
+            break;
+        }
+            
+        sprintf(&filename[0], "%s", dirname);
+        sprintf(aux,"_%d-%d-%d_0x",tm.tm_hour,tm.tm_min,tm.tm_sec);
+        sprintf(&filename[0], "%s%s", filename, aux);
+        sprintf(aux,"%x.csv", slaves_list[i]);
+        sprintf(&filename[0], "%s%s", filename, aux);
 
         sprintf(aux,"%s/%s",dirname,filename);
 
